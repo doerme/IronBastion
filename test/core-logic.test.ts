@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FORT_LAYER_CONFIG, PROJECTILE_CONFIG, SOLDIER_CONFIG, TURN_CONFIG } from '../src/config';
+import {
+  ACTIVE_THEME_ID,
+  CHASSIS_CONFIG,
+  DEFAULT_CHASSIS_TYPE,
+  FORT_LAYER_CONFIG,
+  PROJECTILE_CONFIG,
+  SOLDIER_CONFIG,
+  THEME_CONFIG,
+  TURN_CONFIG
+} from '../src/config';
 import type { FortBlockState, FortLayer, FortState, Team } from '../src/types';
 import { canDeployToLayer } from '../src/systems/SoldierDeploy';
 import {
@@ -39,6 +48,29 @@ describe('Projectile identity rules', () => {
     expect(PROJECTILE_CONFIG.infantry.trajectory).toBe('flat-burst');
     expect(PROJECTILE_CONFIG.sniper.trajectory).toBe('direct-shot');
     expect(PROJECTILE_CONFIG.artillery.trajectory).toBe('mortar-arc');
+  });
+});
+
+describe('Theme and chassis configuration', () => {
+  it('provides a layered grassland battlefield theme', () => {
+    const theme = THEME_CONFIG[ACTIVE_THEME_ID];
+
+    expect(theme.id).toBe('grassland');
+    expect(theme.groundY).toBeGreaterThan(380);
+    expect(theme.groundY).toBeLessThan(460);
+    expect(Object.keys(theme.layerKeys).sort()).toEqual(['clouds', 'far', 'ground', 'near', 'sky']);
+    expect(theme.layerKeys.sky).toContain('grassland');
+    expect(theme.layerKeys.ground).toContain('ground');
+  });
+
+  it('defines a swappable wheeled chassis for both teams', () => {
+    const chassis = CHASSIS_CONFIG[DEFAULT_CHASSIS_TYPE];
+
+    expect(chassis.type).toBe('wheeled-armored');
+    expect(chassis.wheelCount).toBeGreaterThanOrEqual(4);
+    expect(chassis.wheelRadius).toBeGreaterThan(0);
+    expect(chassis.textureByTeam.red).toContain('red');
+    expect(chassis.textureByTeam.blue).toContain('blue');
   });
 });
 
@@ -232,6 +264,7 @@ function createFort(team: Team): FortState {
   const layers: FortLayer[] = ['bottom', 'middle', 'top'];
   return {
     team,
+    chassisType: DEFAULT_CHASSIS_TYPE,
     coreHp: TURN_CONFIG.initialCoreHp,
     maxCoreHp: TURN_CONFIG.initialCoreHp,
     collapseTriggered: false,

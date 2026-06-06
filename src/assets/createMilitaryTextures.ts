@@ -1,13 +1,16 @@
 import Phaser from 'phaser';
-import { ASSET_KEYS } from '../config';
+import { ASSET_KEYS, CHASSIS_CONFIG, GAME_HEIGHT, GAME_WIDTH, THEME_CONFIG } from '../config';
+import type { Team } from '../types';
 
 export function createMilitaryTextures(scene: Phaser.Scene): void {
-  createBackground(scene);
+  createGrasslandTheme(scene);
   createBlock(scene, ASSET_KEYS.redBlock, '#7f2f2b', '#d4533f');
   createBlock(scene, ASSET_KEYS.blueBlock, '#244c7d', '#3d8be0');
   createBlock(scene, ASSET_KEYS.damagedBlock, '#3b352d', '#8d7b63');
   createCore(scene, ASSET_KEYS.redCore, '#ff5a45');
   createCore(scene, ASSET_KEYS.blueCore, '#55a9ff');
+  createChassis(scene, ASSET_KEYS.redWheeledChassis, 'red');
+  createChassis(scene, ASSET_KEYS.blueWheeledChassis, 'blue');
   createSoldier(scene, ASSET_KEYS.bomber, '#e04a32', 'B');
   createSoldier(scene, ASSET_KEYS.infantry, '#d6b14a', 'I');
   createSoldier(scene, ASSET_KEYS.sniper, '#62c36d', 'S');
@@ -29,24 +32,217 @@ export function createMilitaryTextures(scene: Phaser.Scene): void {
   createSmoke(scene);
 }
 
-function createBackground(scene: Phaser.Scene): void {
-  if (scene.textures.exists(ASSET_KEYS.background)) return;
+function createGrasslandTheme(scene: Phaser.Scene): void {
+  createGrasslandSky(scene);
+  createGrasslandClouds(scene);
+  createGrasslandFar(scene);
+  createGrasslandNear(scene);
+  createGrasslandGround(scene);
+}
+
+function createGrasslandSky(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ASSET_KEYS.grasslandSky)) return;
   const g = scene.make.graphics({ x: 0, y: 0 });
-  g.fillGradientStyle(0x27332b, 0x27332b, 0x76694d, 0x4f4736);
-  g.fillRect(0, 0, 1024, 576);
-  g.fillStyle(0x1f251e, 0.35);
-  for (let i = 0; i < 48; i += 1) {
-    const x = 30 + i * 24;
-    const y = 350 + Math.sin(i * 0.7) * 16;
-    g.fillCircle(x, y, 38 + (i % 4) * 8);
+  const bands = [
+    { y: 0, height: 58, color: 0x72b6ee },
+    { y: 58, height: 58, color: 0x8cc8f4 },
+    { y: 116, height: 64, color: 0xb5ddf6 },
+    { y: 180, height: 76, color: 0xd4edec },
+    { y: 256, height: 90, color: 0xe5eed0 },
+    { y: 346, height: GAME_HEIGHT - 346, color: 0xd8dfaf }
+  ];
+  for (const band of bands) {
+    g.fillStyle(band.color, 1);
+    g.fillRect(0, band.y, GAME_WIDTH, band.height);
   }
-  g.fillStyle(0x121612, 0.45);
-  g.fillRect(0, 398, 1024, 178);
-  g.fillStyle(0x9c8762, 0.18);
-  for (let i = 0; i < 120; i += 1) {
-    g.fillCircle(Math.random() * 1024, 410 + Math.random() * 150, 1 + Math.random() * 2);
+  g.fillStyle(0xffffff, 0.12);
+  for (let i = 0; i < 8; i += 1) {
+    const y = 36 + i * 33;
+    g.fillRect(0, y, GAME_WIDTH, 2);
   }
-  g.generateTexture(ASSET_KEYS.background, 1024, 576);
+  g.fillStyle(0xffefad, 0.18);
+  g.fillCircle(840, 92, 82);
+  g.generateTexture(ASSET_KEYS.grasslandSky, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+function createGrasslandClouds(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ASSET_KEYS.grasslandClouds)) return;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  const clouds = [
+    { x: 98, y: 86, scale: 1.1, alpha: 0.72 },
+    { x: 330, y: 58, scale: 0.78, alpha: 0.58 },
+    { x: 575, y: 112, scale: 1.28, alpha: 0.64 },
+    { x: 850, y: 72, scale: 0.92, alpha: 0.66 },
+    { x: 985, y: 145, scale: 0.72, alpha: 0.48 }
+  ];
+  for (const cloud of clouds) {
+    drawCloud(g, cloud.x, cloud.y, cloud.scale, cloud.alpha);
+  }
+  g.generateTexture(ASSET_KEYS.grasslandClouds, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+function createGrasslandFar(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ASSET_KEYS.grasslandFar)) return;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  drawRollingHill(g, 328, 0x7aa180, 0.72, [
+    { x: -90, y: 322, r: 190 },
+    { x: 160, y: 300, r: 230 },
+    { x: 410, y: 316, r: 210 },
+    { x: 680, y: 292, r: 250 },
+    { x: 980, y: 318, r: 220 }
+  ]);
+  drawRollingHill(g, 368, 0x5f8e5e, 0.78, [
+    { x: -60, y: 362, r: 160 },
+    { x: 190, y: 350, r: 190 },
+    { x: 470, y: 364, r: 170 },
+    { x: 760, y: 342, r: 205 },
+    { x: 1040, y: 360, r: 170 }
+  ]);
+  g.fillStyle(0x345d3b, 0.16);
+  for (let i = 0; i < 80; i += 1) {
+    const x = (i * 41) % GAME_WIDTH;
+    const y = 298 + Math.sin(i * 1.7) * 20;
+    g.fillRect(x, y, 3, 35 + (i % 5) * 5);
+  }
+  g.generateTexture(ASSET_KEYS.grasslandFar, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+function createGrasslandNear(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ASSET_KEYS.grasslandNear)) return;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  g.fillStyle(0x4e8b3e, 0.4);
+  for (let i = 0; i < 28; i += 1) {
+    const x = -20 + i * 42;
+    const y = 382 + Math.sin(i * 0.9) * 10;
+    g.fillEllipse(x, y, 92, 28);
+  }
+  for (let i = 0; i < 190; i += 1) {
+    const x = (i * 37) % GAME_WIDTH;
+    const baseY = 384 + ((i * 11) % 36);
+    const height = 12 + (i % 7) * 3;
+    const color = i % 3 === 0 ? 0x2f6d31 : i % 3 === 1 ? 0x6aa33e : 0x9dbd55;
+    g.lineStyle(1 + (i % 2), color, 0.75);
+    g.lineBetween(x, baseY, x + Math.sin(i) * 6, baseY - height);
+  }
+  g.fillStyle(0x2f3629, 0.36);
+  for (let i = 0; i < 26; i += 1) {
+    const x = (i * 83) % GAME_WIDTH;
+    const y = 403 + (i % 4) * 7;
+    g.fillEllipse(x, y, 22 + (i % 3) * 6, 8 + (i % 2) * 3);
+  }
+  g.generateTexture(ASSET_KEYS.grasslandNear, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+function createGrasslandGround(scene: Phaser.Scene): void {
+  if (scene.textures.exists(ASSET_KEYS.grasslandGround)) return;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+  const groundY = THEME_CONFIG.grassland.groundY;
+  g.fillGradientStyle(0x4f8f33, 0x5f9c3a, 0x2f5c2b, 0x274f28);
+  g.fillRect(0, groundY - 32, GAME_WIDTH, 54);
+  g.fillStyle(0x815f38, 0.96);
+  g.fillRect(0, groundY + 18, GAME_WIDTH, GAME_HEIGHT - groundY - 18);
+  g.fillStyle(0x4b3522, 0.55);
+  for (let i = 0; i < 10; i += 1) {
+    g.fillRect(0, groundY + 34 + i * 13, GAME_WIDTH, 2);
+  }
+  g.fillStyle(0x27351f, 0.22);
+  for (let i = 0; i < 150; i += 1) {
+    const x = (i * 53) % GAME_WIDTH;
+    const y = groundY + 29 + ((i * 19) % 124);
+    g.fillCircle(x, y, 1 + (i % 4));
+  }
+  g.lineStyle(3, 0xcee27d, 0.72);
+  for (let i = 0; i < 90; i += 1) {
+    const x = (i * 31) % GAME_WIDTH;
+    g.lineBetween(x, groundY - 22, x + Math.cos(i) * 5, groundY - 35 - (i % 4) * 3);
+  }
+  g.lineStyle(2, 0x23371e, 0.65);
+  g.beginPath();
+  g.moveTo(0, groundY + 18);
+  for (let x = 0; x <= GAME_WIDTH; x += 32) {
+    g.lineTo(x, groundY + 16 + Math.sin(x * 0.035) * 4);
+  }
+  g.strokePath();
+  g.generateTexture(ASSET_KEYS.grasslandGround, GAME_WIDTH, GAME_HEIGHT);
+  g.destroy();
+}
+
+function drawCloud(
+  g: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  scale: number,
+  alpha: number
+): void {
+  g.fillStyle(0xffffff, alpha);
+  g.fillEllipse(x, y + 12 * scale, 78 * scale, 28 * scale);
+  g.fillCircle(x - 26 * scale, y + 7 * scale, 18 * scale);
+  g.fillCircle(x, y, 24 * scale);
+  g.fillCircle(x + 30 * scale, y + 6 * scale, 19 * scale);
+  g.fillStyle(0xc6dded, alpha * 0.3);
+  g.fillEllipse(x + 4 * scale, y + 18 * scale, 72 * scale, 12 * scale);
+}
+
+function drawRollingHill(
+  g: Phaser.GameObjects.Graphics,
+  floorY: number,
+  color: number,
+  alpha: number,
+  circles: Array<{ x: number; y: number; r: number }>
+): void {
+  g.fillStyle(color, alpha);
+  g.fillRect(0, floorY, GAME_WIDTH, GAME_HEIGHT - floorY);
+  for (const circle of circles) {
+    g.fillCircle(circle.x, circle.y, circle.r);
+  }
+}
+
+function createChassis(scene: Phaser.Scene, key: string, team: Team): void {
+  if (scene.textures.exists(key)) return;
+  const config = CHASSIS_CONFIG['wheeled-armored'];
+  const width = config.width + 26;
+  const height = config.bodyHeight + config.wheelRadius * 2 + config.groundClearance + 10;
+  const bodyY = 10;
+  const wheelY = bodyY + config.bodyHeight + config.groundClearance + config.wheelRadius - 2;
+  const base = team === 'red' ? 0x5f2b27 : 0x243f66;
+  const panel = team === 'red' ? 0xa94635 : 0x346faf;
+  const accent = team === 'red' ? 0xff7358 : 0x69b7ff;
+  const g = scene.make.graphics({ x: 0, y: 0 });
+
+  g.fillStyle(0x060807, 0.38);
+  g.fillEllipse(width / 2, wheelY + config.wheelRadius + 3, config.width * 0.92, 14);
+  g.fillStyle(base, 1);
+  g.fillRoundedRect(13, bodyY + 8, config.width, config.bodyHeight - 2, 7);
+  g.fillStyle(panel, 0.95);
+  g.fillRoundedRect(25, bodyY, config.width - 24, config.bodyHeight - 8, 8);
+  g.fillStyle(0x111814, 0.45);
+  g.fillRect(30, bodyY + config.bodyHeight - 15, config.width - 34, 8);
+  g.lineStyle(2, 0x121712, 0.85);
+  g.strokeRoundedRect(13, bodyY + 8, config.width, config.bodyHeight - 2, 7);
+  g.lineStyle(2, accent, 0.8);
+  g.lineBetween(35, bodyY + 8, width - 35, bodyY + 8);
+
+  g.fillStyle(0x121712, 0.78);
+  g.fillRoundedRect(30, wheelY - 8, width - 60, 16, 8);
+
+  const wheelStart = width / 2 - ((config.wheelCount - 1) * 36) / 2;
+  for (let i = 0; i < config.wheelCount; i += 1) {
+    const x = wheelStart + i * 36;
+    g.fillStyle(0x151713, 1);
+    g.fillCircle(x, wheelY, config.wheelRadius + 4);
+    g.fillStyle(0x2b3028, 1);
+    g.fillCircle(x, wheelY, config.wheelRadius);
+    g.fillStyle(0x727c6f, 0.85);
+    g.fillCircle(x, wheelY, config.wheelRadius * 0.48);
+    g.lineStyle(2, 0x080908, 0.65);
+    g.strokeCircle(x, wheelY, config.wheelRadius + 4);
+  }
+
+  g.generateTexture(key, width, height);
   g.destroy();
 }
 

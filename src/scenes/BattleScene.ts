@@ -1,11 +1,13 @@
 import Phaser from 'phaser';
 import { createMilitaryTextures } from '../assets/createMilitaryTextures';
 import {
+  ACTIVE_THEME_ID,
   ASSET_KEYS,
   GAME_HEIGHT,
   GAME_WIDTH,
   PHYSICS_CONFIG,
   SOLDIER_CONFIG,
+  THEME_CONFIG,
   TURN_CONFIG
 } from '../config';
 import { MilitaryFort } from '../objects/MilitaryFort';
@@ -20,7 +22,7 @@ import {
 } from '../systems/FortPhysics';
 import { assignSoldierToSlot, canDeploySoldier } from '../systems/SoldierDeploy';
 import { TurnBattleSystem } from '../systems/TurnBattleSystem';
-import type { SoldierState, SoldierType, Team, Vec2, WinnerReport } from '../types';
+import type { BattleThemeConfig, SoldierState, SoldierType, Team, Vec2, WinnerReport } from '../types';
 
 interface AttackTask {
   soldier: SoldierState;
@@ -58,17 +60,26 @@ export class BattleScene extends Phaser.Scene {
 
   create(): void {
     createMilitaryTextures(this);
-    this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, ASSET_KEYS.background);
+    const theme = THEME_CONFIG[ACTIVE_THEME_ID];
+    this.createThemeLayers(theme);
     this.physics.world.gravity.y = PHYSICS_CONFIG.gravity;
 
-    this.redFort = new MilitaryFort(this, 'red', { x: 195, y: 372 });
-    this.blueFort = new MilitaryFort(this, 'blue', { x: 829, y: 372 });
+    this.redFort = new MilitaryFort(this, 'red', { x: 195, y: 372 }, { groundY: theme.groundY });
+    this.blueFort = new MilitaryFort(this, 'blue', { x: 829, y: 372 }, { groundY: theme.groundY });
 
     this.createUi();
     this.bindInput();
     this.turnSystem.startDeploy('red');
     this.setMessage('选择兵种卡牌，点击红方阵地部署。');
     this.syncAllVisuals();
+  }
+
+  private createThemeLayers(theme: BattleThemeConfig): void {
+    const layerOrder: Array<keyof BattleThemeConfig['layerKeys']> = ['sky', 'clouds', 'far', 'near', 'ground'];
+    for (let i = 0; i < layerOrder.length; i += 1) {
+      const layer = this.add.image(GAME_WIDTH / 2, GAME_HEIGHT / 2, theme.layerKeys[layerOrder[i]]);
+      layer.setDepth(-10 + i * 0.5);
+    }
   }
 
   update(_time: number, delta: number): void {

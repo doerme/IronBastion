@@ -1,9 +1,9 @@
 import Phaser from 'phaser';
-import { ASSET_KEYS, DEPLOY_LAYOUT, FORT_LAYER_CONFIG, TURN_CONFIG } from '../config';
+import { ASSET_KEYS, CHASSIS_CONFIG, DEFAULT_CHASSIS_TYPE, DEPLOY_LAYOUT, FORT_LAYER_CONFIG, TURN_CONFIG } from '../config';
 import { canDeploySoldier } from '../systems/SoldierDeploy';
 import { createFortBlockState, FortBlock } from './FortBlock';
 import { Soldier } from './Soldier';
-import type { DeploySlot, FortLayer, FortState, SoldierState, SoldierType, Team, Vec2 } from '../types';
+import type { ChassisType, DeploySlot, FortLayer, FortState, SoldierType, Team, Vec2 } from '../types';
 
 const LAYERS: FortLayer[] = ['bottom', 'middle', 'top'];
 
@@ -11,14 +11,22 @@ export class MilitaryFort {
   state: FortState;
   blocks: FortBlock[] = [];
   soldierViews = new Map<string, Soldier>();
+  chassis: Phaser.GameObjects.Sprite;
   core: Phaser.GameObjects.Sprite;
   coreText: Phaser.GameObjects.Text;
   slotViews: Phaser.GameObjects.Arc[];
   interiorViews: Phaser.GameObjects.Rectangle[] = [];
 
-  constructor(private scene: Phaser.Scene, team: Team, origin: Vec2) {
+  constructor(
+    private scene: Phaser.Scene,
+    team: Team,
+    origin: Vec2,
+    options: { groundY?: number; chassisType?: ChassisType } = {}
+  ) {
+    const chassisType = options.chassisType ?? DEFAULT_CHASSIS_TYPE;
     this.state = {
       team,
+      chassisType,
       coreHp: TURN_CONFIG.initialCoreHp,
       maxCoreHp: TURN_CONFIG.initialCoreHp,
       blocks: [],
@@ -28,6 +36,7 @@ export class MilitaryFort {
       collapseTriggered: false
     };
 
+    this.chassis = this.createChassis(origin, options.groundY ?? origin.y + 53, chassisType);
     this.createBlocks(origin);
     this.createInteriorViews();
     this.createDeploySlots(origin);
@@ -156,6 +165,14 @@ export class MilitaryFort {
       view.setDepth(1);
       this.interiorViews.push(view);
     }
+  }
+
+  private createChassis(origin: Vec2, groundY: number, chassisType: ChassisType): Phaser.GameObjects.Sprite {
+    const config = CHASSIS_CONFIG[chassisType];
+    const textureHeight = config.bodyHeight + config.wheelRadius * 2 + config.groundClearance + 10;
+    const chassis = this.scene.add.sprite(origin.x, groundY - textureHeight / 2 + 1, config.textureByTeam[this.state.team]);
+    chassis.setDepth(1.45);
+    return chassis;
   }
 
 }

@@ -4,6 +4,9 @@ export type SoldierType = 'bomber' | 'infantry' | 'sniper' | 'artillery';
 export type SoldierVisualState = 'idle' | 'deploy' | 'attack';
 export type ProjectileTrajectory = 'heavy-lob' | 'flat-burst' | 'direct-shot' | 'mortar-arc';
 export type BattlePhase = 'READY' | 'DEPLOY' | 'ATTACK' | 'SETTLE' | 'GAMEOVER';
+export type ThemeId = 'grassland';
+export type ThemeVisualLayer = 'sky' | 'clouds' | 'far' | 'near' | 'ground';
+export type ChassisType = 'wheeled-armored';
 
 export interface Vec2 {
   x: number;
@@ -63,8 +66,27 @@ export interface SoldierConfig {
   description: string;
 }
 
+export interface BattleThemeConfig {
+  id: ThemeId;
+  label: string;
+  groundY: number;
+  layerKeys: Record<ThemeVisualLayer, string>;
+}
+
+export interface ChassisConfig {
+  type: ChassisType;
+  label: string;
+  width: number;
+  bodyHeight: number;
+  wheelCount: number;
+  wheelRadius: number;
+  groundClearance: number;
+  textureByTeam: Record<Team, string>;
+}
+
 export interface FortState {
   team: Team;
+  chassisType: ChassisType;
   coreHp: number;
   maxCoreHp: number;
   blocks: FortBlockState[];

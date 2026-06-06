@@ -1,15 +1,22 @@
-import type { FortLayer, ProjectileTrajectory, SoldierType } from './types';
+import type { BattleThemeConfig, ChassisConfig, ChassisType, FortLayer, ProjectileTrajectory, SoldierType, ThemeId } from './types';
 
 export const GAME_WIDTH = 1024;
 export const GAME_HEIGHT = 576;
 
 export const ASSET_KEYS = {
   background: 'battlefield-bg.png',
+  grasslandSky: 'grassland-sky.png',
+  grasslandClouds: 'grassland-clouds.png',
+  grasslandFar: 'grassland-far.png',
+  grasslandNear: 'grassland-near.png',
+  grasslandGround: 'grassland-ground.png',
   redBlock: 'red-fort-block.png',
   blueBlock: 'blue-fort-block.png',
   damagedBlock: 'damaged-fort-block.png',
   redCore: 'red-core.png',
   blueCore: 'blue-core.png',
+  redWheeledChassis: 'red-wheeled-chassis.png',
+  blueWheeledChassis: 'blue-wheeled-chassis.png',
   bomber: 'bomber-sprite.png',
   infantry: 'infantry-sprite.png',
   sniper: 'sniper-sprite.png',
@@ -30,6 +37,41 @@ export const ASSET_KEYS = {
   explosion: 'explosion-flash.png',
   smoke: 'smoke.png'
 } as const;
+
+export const ACTIVE_THEME_ID: ThemeId = 'grassland';
+
+export const THEME_CONFIG: Record<ThemeId, BattleThemeConfig> = {
+  grassland: {
+    id: 'grassland',
+    label: '大草原',
+    groundY: 425,
+    layerKeys: {
+      sky: ASSET_KEYS.grasslandSky,
+      clouds: ASSET_KEYS.grasslandClouds,
+      far: ASSET_KEYS.grasslandFar,
+      near: ASSET_KEYS.grasslandNear,
+      ground: ASSET_KEYS.grasslandGround
+    }
+  }
+};
+
+export const DEFAULT_CHASSIS_TYPE: ChassisType = 'wheeled-armored';
+
+export const CHASSIS_CONFIG: Record<ChassisType, ChassisConfig> = {
+  'wheeled-armored': {
+    type: 'wheeled-armored',
+    label: '轮式装甲底盘',
+    width: 264,
+    bodyHeight: 38,
+    wheelCount: 6,
+    wheelRadius: 13,
+    groundClearance: 4,
+    textureByTeam: {
+      red: ASSET_KEYS.redWheeledChassis,
+      blue: ASSET_KEYS.blueWheeledChassis
+    }
+  }
+};
 
 export const TURN_CONFIG = {
   maxRounds: 12,
