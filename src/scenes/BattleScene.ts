@@ -178,6 +178,7 @@ export class BattleScene extends Phaser.Scene {
       this.setMessage(`${SOLDIER_CONFIG[this.selectedType].label} 已进入 ${slot.layer} 阵地。`);
       updateSoldierExposure(this.redFort.state);
       this.syncAllVisuals();
+      this.time.delayedCall(650, () => this.setSoldierVisualState(slot.occupantId, 'idle'));
     });
   }
 
@@ -209,6 +210,7 @@ export class BattleScene extends Phaser.Scene {
     assignSoldierToSlot(this.blueFort.state, choice.type, choice.slot.id);
     updateSoldierExposure(this.blueFort.state);
     this.syncAllVisuals();
+    this.time.delayedCall(650, () => this.setSoldierVisualState(choice.slot.occupantId, 'idle'));
   }
 
   private createAttackQueue(team: Team): AttackTask[] {
@@ -245,8 +247,10 @@ export class BattleScene extends Phaser.Scene {
     }
 
     const speed = SOLDIER_CONFIG[task.soldier.type].shellSpeed;
+    this.setSoldierVisualState(task.soldier.id, 'attack');
     this.activeShell = launchShell(this, task.soldier, task.target, speed);
     this.activeShell.sprite.setData('targetFort', task.targetFort);
+    this.time.delayedCall(520, () => this.setSoldierVisualState(task.soldier.id, 'idle'));
   }
 
   private updateShell(): void {
@@ -278,8 +282,7 @@ export class BattleScene extends Phaser.Scene {
     const radius = SOLDIER_CONFIG[shell.attacker.type].explosionRadius;
     const report = applyExplosionDamage(targetFort.state, shell.attacker.type, impact, radius);
     this.playExplosion(report.effectiveImpact, radius);
-    if (report.cratersCreated.length > 0) this.playCraterShock(report.cratersCreated[0]);
-    targetFort.syncVisuals(this.selectedType);
+    targetFort.syncVisuals(undefined, false);
 
     if (report.soldierHits.some((hit) => hit.killed)) {
       this.setMessage('暴露士兵被命中，作战单位阵亡！');
@@ -397,21 +400,6 @@ export class BattleScene extends Phaser.Scene {
     });
   }
 
-  private playCraterShock(crater: { x: number; y: number; radius: number }): void {
-    const ring = this.add.circle(crater.x, crater.y, crater.radius * 0.35);
-    ring.setDepth(6);
-    ring.setStrokeStyle(6, 0x050403, 0.95);
-    ring.setFillStyle(0x000000, 0.18);
-    this.tweens.add({
-      targets: ring,
-      alpha: 0,
-      scale: 2.6,
-      duration: 420,
-      ease: 'Quad.easeOut',
-      onComplete: () => ring.destroy()
-    });
-  }
-
   private refreshUi(): void {
     const side = this.turnSystem.activeTeam === 'red' ? '红方' : '蓝方';
     this.statusText.setText(
@@ -434,8 +422,10 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private syncAllVisuals(): void {
-    this.redFort.syncVisuals(this.selectedType);
-    this.blueFort.syncVisuals();
+    const showInterior = this.turnSystem.phase !== 'ATTACK';
+    const showRedDeployHints = this.turnSystem.phase === 'DEPLOY' && this.turnSystem.activeTeam === 'red';
+    this.redFort.syncVisuals(this.selectedType, showInterior, showRedDeployHints);
+    this.blueFort.syncVisuals(undefined, showInterior, false);
     this.refreshUi();
   }
 
@@ -454,5 +444,15 @@ export class BattleScene extends Phaser.Scene {
 
   private getAliveSoldierCount(fort: MilitaryFort): number {
     return fort.state.soldiers.filter((soldier) => soldier.isAlive).length;
+  }
+
+  private setSoldierVisualState(soldierId: string | undefined, visualState: 'idle' | 'deploy' | 'attack'): void {
+    if (!soldierId) return;
+    const soldier = [...this.redFort.state.soldiers, ...this.blueFort.state.soldiers].find(
+      (candidate) => candidate.id === soldierId && candidate.isAlive
+    );
+    if (!soldier) return;
+    soldier.visualState = visualState;
+    this.syncAllVisuals();
   }
 }

@@ -1,4 +1,4 @@
-import type { FortLayer, SoldierType } from './types';
+import type { FortLayer, ProjectileTrajectory, SoldierType } from './types';
 
 export const GAME_WIDTH = 1024;
 export const GAME_HEIGHT = 576;
@@ -14,7 +14,19 @@ export const ASSET_KEYS = {
   infantry: 'infantry-sprite.png',
   sniper: 'sniper-sprite.png',
   artillery: 'artillery-sprite.png',
+  bomberDeploy: 'bomber-deploy-sprite.png',
+  infantryDeploy: 'infantry-deploy-sprite.png',
+  sniperDeploy: 'sniper-deploy-sprite.png',
+  artilleryDeploy: 'artillery-deploy-sprite.png',
+  bomberAttack: 'bomber-attack-sprite.png',
+  infantryAttack: 'infantry-attack-sprite.png',
+  sniperAttack: 'sniper-attack-sprite.png',
+  artilleryAttack: 'artillery-attack-sprite.png',
   shell: 'shell.png',
+  bomberShell: 'bomber-shell.png',
+  infantryShell: 'infantry-shell.png',
+  sniperShell: 'sniper-shell.png',
+  artilleryShell: 'artillery-shell.png',
   explosion: 'explosion-flash.png',
   smoke: 'smoke.png'
 } as const;
@@ -51,6 +63,51 @@ export const CRATER_CONFIG = {
   minRadius: number;
   maxRadius: number;
   radiusScaleBySoldier: Record<SoldierType, number>;
+};
+
+export const PROJECTILE_CONFIG: Record<
+  SoldierType,
+  {
+    texture: string;
+    scale: number;
+    trajectory: ProjectileTrajectory;
+    travelTimeMin: number;
+    travelTimeMax: number;
+    launchLift: number;
+  }
+> = {
+  bomber: {
+    texture: ASSET_KEYS.bomberShell,
+    scale: 0.95,
+    trajectory: 'heavy-lob',
+    travelTimeMin: 1.05,
+    travelTimeMax: 1.55,
+    launchLift: -120
+  },
+  infantry: {
+    texture: ASSET_KEYS.infantryShell,
+    scale: 0.72,
+    trajectory: 'flat-burst',
+    travelTimeMin: 0.55,
+    travelTimeMax: 0.9,
+    launchLift: -10
+  },
+  sniper: {
+    texture: ASSET_KEYS.sniperShell,
+    scale: 0.88,
+    trajectory: 'direct-shot',
+    travelTimeMin: 0.35,
+    travelTimeMax: 0.7,
+    launchLift: 0
+  },
+  artillery: {
+    texture: ASSET_KEYS.artilleryShell,
+    scale: 1.05,
+    trajectory: 'mortar-arc',
+    travelTimeMin: 1.25,
+    travelTimeMax: 1.8,
+    launchLift: -165
+  }
 };
 
 export const FORT_LAYER_CONFIG: Record<
@@ -105,6 +162,7 @@ export const SOLDIER_CONFIG: Record<SoldierType, import('./types').SoldierConfig
     defBreak: 1.8,
     shellSpeed: 280,
     explosionRadius: 90,
+    trajectory: 'heavy-lob',
     maxHp: 150,
     suitLayer: 'bottom',
     attacksPerTurn: 1,
@@ -114,19 +172,21 @@ export const SOLDIER_CONFIG: Record<SoldierType, import('./types').SoldierConfig
     label: '突击步兵',
     attack: 42,
     defBreak: 1,
-    shellSpeed: 320,
-    explosionRadius: 50,
+    shellSpeed: 430,
+    explosionRadius: 38,
+    trajectory: 'flat-burst',
     maxHp: 115,
     suitLayer: 'middle',
-    attacksPerTurn: 2,
-    description: '高频压制，稳定清场'
+    attacksPerTurn: 3,
+    description: '三连发低平弹，快速压制'
   },
   sniper: {
     label: '狙击兵',
     attack: 95,
     defBreak: 1.2,
-    shellSpeed: 380,
-    explosionRadius: 35,
+    shellSpeed: 620,
+    explosionRadius: 30,
+    trajectory: 'direct-shot',
     maxHp: 85,
     suitLayer: 'top',
     attacksPerTurn: 1,
@@ -137,11 +197,12 @@ export const SOLDIER_CONFIG: Record<SoldierType, import('./types').SoldierConfig
     attack: 55,
     defBreak: 1.4,
     shellSpeed: 260,
-    explosionRadius: 120,
+    explosionRadius: 96,
+    trajectory: 'mortar-arc',
     maxHp: 120,
     suitLayer: 'middleTop',
-    attacksPerTurn: 1,
-    description: '范围轰炸，多层溅射'
+    attacksPerTurn: 2,
+    description: '双发迫击高抛，范围压制'
   }
 };
 

@@ -3,7 +3,7 @@ import { ASSET_KEYS, DEPLOY_LAYOUT, FORT_LAYER_CONFIG, TURN_CONFIG } from '../co
 import { canDeploySoldier } from '../systems/SoldierDeploy';
 import { createFortBlockState, FortBlock } from './FortBlock';
 import { Soldier } from './Soldier';
-import type { CraterState, DeploySlot, FortLayer, FortState, SoldierState, SoldierType, Team, Vec2 } from '../types';
+import type { DeploySlot, FortLayer, FortState, SoldierState, SoldierType, Team, Vec2 } from '../types';
 
 const LAYERS: FortLayer[] = ['bottom', 'middle', 'top'];
 
@@ -15,7 +15,6 @@ export class MilitaryFort {
   coreText: Phaser.GameObjects.Text;
   slotViews: Phaser.GameObjects.Arc[];
   interiorViews: Phaser.GameObjects.Rectangle[] = [];
-  craterViews = new Map<string, Phaser.GameObjects.Graphics>();
 
   constructor(private scene: Phaser.Scene, team: Team, origin: Vec2) {
     this.state = {
@@ -47,16 +46,16 @@ export class MilitaryFort {
     this.slotViews = this.createSlotViews();
   }
 
-  syncVisuals(selectedType?: SoldierType): void {
-    this.syncCraters();
-    for (const block of this.blocks) block.syncVisual();
-    this.core.setAlpha(0.55 + (this.state.coreHp / this.state.maxCoreHp) * 0.45);
-    this.syncSoldiers();
+  syncVisuals(selectedType?: SoldierType, showInterior = false, showDeployHints = Boolean(selectedType)): void {
+    for (const block of this.blocks) block.syncVisual(showInterior);
+    this.core.setAlpha(showInterior ? 0.34 : 0.55 + (this.state.coreHp / this.state.maxCoreHp) * 0.45);
+    this.coreText.setAlpha(showInterior ? 0.45 : 1);
+    this.syncSoldiers(showInterior);
 
     for (const slotView of this.slotViews) {
       const slot = this.state.deploySlots.find((candidate) => candidate.id === slotView.name);
       if (!slot) continue;
-      const legal = selectedType ? canDeploySoldier(this.state, selectedType, slot.id) : false;
+      const legal = selectedType && showDeployHints ? canDeploySoldier(this.state, selectedType, slot.id) : false;
       slotView.setFillStyle(legal ? 0xf3d36b : 0x1b211a, legal ? 0.8 : 0.45);
       slotView.setStrokeStyle(2, legal ? 0xfff2a4 : 0x566052, legal ? 0.9 : 0.6);
       slotView.setAlpha(slot.occupantId ? 0.25 : 1);
@@ -131,7 +130,7 @@ export class MilitaryFort {
     });
   }
 
-  private syncSoldiers(): void {
+  private syncSoldiers(showInterior = false): void {
     const activeIds = new Set(this.state.soldiers.filter((soldier) => soldier.isAlive).map((soldier) => soldier.id));
     for (const [id, view] of this.soldierViews) {
       if (!activeIds.has(id)) {
@@ -145,7 +144,7 @@ export class MilitaryFort {
       if (!this.soldierViews.has(soldier.id)) {
         this.soldierViews.set(soldier.id, new Soldier(this.scene, soldier));
       }
-      this.soldierViews.get(soldier.id)?.syncVisual();
+      this.soldierViews.get(soldier.id)?.syncVisual(showInterior);
     }
   }
 
@@ -159,46 +158,4 @@ export class MilitaryFort {
     }
   }
 
-  private syncCraters(): void {
-    const activeIds = new Set(this.state.craters.map((crater) => crater.id));
-    for (const [id, view] of this.craterViews) {
-      if (!activeIds.has(id)) {
-        view.destroy();
-        this.craterViews.delete(id);
-      }
-    }
-
-    for (const crater of this.state.craters) {
-      if (!this.craterViews.has(crater.id)) {
-        const view = this.scene.add.graphics();
-        view.setDepth(1.6);
-        drawCrater(view, crater);
-        this.craterViews.set(crater.id, view);
-      }
-    }
-  }
-}
-
-function drawCrater(graphics: Phaser.GameObjects.Graphics, crater: CraterState): void {
-  const points: Phaser.Math.Vector2[] = [];
-  for (let i = 0; i < 18; i += 1) {
-    const angle = (Math.PI * 2 * i) / 18;
-    const wobble = 0.82 + Math.sin(i * 2.17 + crater.radius * 0.31) * 0.12 + Math.cos(i * 1.41) * 0.08;
-    points.push(
-      new Phaser.Math.Vector2(
-        crater.x + Math.cos(angle) * crater.radius * wobble,
-        crater.y + Math.sin(angle) * crater.radius * wobble
-      )
-    );
-  }
-
-  graphics.clear();
-  graphics.fillStyle(0x030303, 0.98);
-  graphics.fillPoints(points, true, true);
-  graphics.lineStyle(5, 0x0b0805, 0.95);
-  graphics.strokePoints(points, true, true);
-  graphics.lineStyle(2, 0x4c2c18, 0.75);
-  graphics.strokeCircle(crater.x, crater.y, crater.radius * 0.9);
-  graphics.fillStyle(0x15100a, 0.65);
-  graphics.fillCircle(crater.x - crater.radius * 0.22, crater.y + crater.radius * 0.12, crater.radius * 0.35);
 }

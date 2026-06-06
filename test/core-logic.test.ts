@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FORT_LAYER_CONFIG, TURN_CONFIG } from '../src/config';
+import { FORT_LAYER_CONFIG, PROJECTILE_CONFIG, SOLDIER_CONFIG, TURN_CONFIG } from '../src/config';
 import type { FortBlockState, FortLayer, FortState, Team } from '../src/types';
 import { canDeployToLayer } from '../src/systems/SoldierDeploy';
 import {
@@ -28,6 +28,20 @@ describe('Soldier deployment rules', () => {
   });
 });
 
+describe('Projectile identity rules', () => {
+  it('gives each soldier type a distinct projectile rhythm and trajectory', () => {
+    expect(SOLDIER_CONFIG.bomber.attacksPerTurn).toBe(1);
+    expect(SOLDIER_CONFIG.infantry.attacksPerTurn).toBe(3);
+    expect(SOLDIER_CONFIG.sniper.attacksPerTurn).toBe(1);
+    expect(SOLDIER_CONFIG.artillery.attacksPerTurn).toBe(2);
+
+    expect(PROJECTILE_CONFIG.bomber.trajectory).toBe('heavy-lob');
+    expect(PROJECTILE_CONFIG.infantry.trajectory).toBe('flat-burst');
+    expect(PROJECTILE_CONFIG.sniper.trajectory).toBe('direct-shot');
+    expect(PROJECTILE_CONFIG.artillery.trajectory).toBe('mortar-arc');
+  });
+});
+
 describe('Fort damage math', () => {
   it('applies armor, layer modifiers, and minimum damage', () => {
     const bottom = block('bottom');
@@ -36,6 +50,20 @@ describe('Fort damage math', () => {
     expect(calculateBlockDamage('infantry', bottom)).toBe(5);
     expect(calculateBlockDamage('bomber', bottom)).toBe(123);
     expect(calculateBlockDamage('artillery', top)).toBe(90);
+  });
+
+  it('marks visible cracks when a block is hit but not destroyed', () => {
+    const fort = createFort('blue');
+    fort.blocks = [block('bottom', 'armored-block')];
+    fort.blocks[0].x = 0;
+    fort.blocks[0].y = 0;
+
+    const report = applyExplosionDamage(fort, 'infantry', { x: 0, y: 0 }, 80, () => 1);
+
+    expect(report.blockHits.length).toBeGreaterThan(0);
+    expect(fort.blocks[0].isDestroyed).toBe(false);
+    expect(fort.blocks[0].crackLevel).toBeGreaterThan(0);
+    expect(fort.blocks[0].lastHitAt).toBeGreaterThan(0);
   });
 
   it('only damages soldiers after cover has been destroyed and they are exposed', () => {
@@ -56,7 +84,8 @@ describe('Fort damage math', () => {
       hp: 80,
       maxHp: 80,
       isAlive: true,
-      isExposed: false
+      isExposed: false,
+      visualState: 'idle'
     });
 
     applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 80, () => 1);
@@ -70,7 +99,7 @@ describe('Fort damage math', () => {
     cover!.hp = 0;
     updateSoldierExposure(fort);
 
-    const report = applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 80, () => 1);
+    const report = applyExplosionDamage(fort, 'bomber', { x: 0, y: 0 }, 80, () => 1);
     expect(report.soldierHits.length).toBe(1);
     expect(fort.soldiers[0].hp).toBeLessThan(80);
   });
@@ -81,7 +110,7 @@ describe('Crater pass-through rules', () => {
     const fort = createFort('blue');
     fort.blocks = [block('bottom', 'covered-block')];
 
-    const report = applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 80, () => 1);
+    const report = applyExplosionDamage(fort, 'bomber', { x: 0, y: 0 }, 80, () => 1);
 
     expect(report.cratersCreated.length).toBe(1);
     expect(fort.craters.length).toBe(1);
@@ -103,9 +132,9 @@ describe('Crater pass-through rules', () => {
     const fort = createFort('blue');
     fort.blocks = [block('bottom', 'single-block')];
 
-    applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 80, () => 1);
+    applyExplosionDamage(fort, 'bomber', { x: 0, y: 0 }, 80, () => 1);
     const craterCount = fort.craters.length;
-    const repeat = applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 80, () => 1);
+    const repeat = applyExplosionDamage(fort, 'bomber', { x: 0, y: 0 }, 80, () => 1);
 
     expect(fort.craters.length).toBe(craterCount);
     expect(repeat.blockHits.length).toBe(0);
@@ -190,7 +219,8 @@ describe('Victory rules', () => {
       hp: 0,
       maxHp: 85,
       isAlive: false,
-      isExposed: true
+      isExposed: true,
+      visualState: 'idle'
     });
 
     expect(areAllDeployedSoldiersDead(createFort('red'))).toBe(false);
@@ -226,6 +256,8 @@ function block(layer: FortLayer, id = `${layer}-block`): FortBlockState {
     defense: config.defense,
     isDestroyed: false,
     isVoid: false,
+    crackLevel: 0,
+    lastHitAt: 0,
     canBearWeight: config.canBearWeight,
     width: config.blockWidth,
     height: config.blockHeight

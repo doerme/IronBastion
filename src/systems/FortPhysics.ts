@@ -100,12 +100,6 @@ export function applyExplosionDamage(
     collapsedBlocks: []
   };
 
-  if (!startedInsideCrater && hasFortBlockNear(fort, effectiveImpact, radius)) {
-    const crater = createCrater(fort, attackerType, effectiveImpact);
-    report.cratersCreated.push(crater);
-    voidBlocksCoveredByCrater(fort, crater, report);
-  }
-
   const blocksInRange = fort.blocks.filter(
     (block) =>
       !block.isDestroyed &&
@@ -118,7 +112,18 @@ export function applyExplosionDamage(
     const damage = calculateBlockDamage(attackerType, block);
     block.hp = Math.max(0, block.hp - damage);
     if (block.hp <= 0) block.isDestroyed = true;
+    if (!block.isDestroyed) {
+      const damageRatio = 1 - block.hp / block.maxHp;
+      block.crackLevel = Math.max(block.crackLevel, Math.max(1, Math.ceil(damageRatio * 4)));
+      block.lastHitAt += 1;
+    }
     report.blockHits.push({ blockId: block.id, damage, destroyed: block.isDestroyed });
+  }
+
+  if (!startedInsideCrater && blocksInRange.some((block) => block.isDestroyed)) {
+    const crater = createCrater(fort, attackerType, effectiveImpact);
+    report.cratersCreated.push(crater);
+    voidBlocksCoveredByCrater(fort, crater, report);
   }
 
   updateSoldierExposure(fort);
@@ -218,12 +223,18 @@ function createCrater(fort: FortState, createdBy: SoldierType, point: Vec2): Cra
 
 function voidBlocksCoveredByCrater(fort: FortState, crater: CraterState, report: DamageReport): void {
   for (const block of fort.blocks) {
-    if (block.isDestroyed || block.isVoid || getDistance(crater, block) > crater.radius) continue;
+    if (block.isVoid || getDistance(crater, block) > crater.radius) continue;
     const damage = block.hp;
     block.hp = 0;
     block.isDestroyed = true;
     block.isVoid = true;
-    report.blockHits.push({ blockId: block.id, damage, destroyed: true, voided: true });
+    const existingHit = report.blockHits.find((hit) => hit.blockId === block.id);
+    if (existingHit) {
+      existingHit.destroyed = true;
+      existingHit.voided = true;
+    } else {
+      report.blockHits.push({ blockId: block.id, damage, destroyed: true, voided: true });
+    }
   }
 }
 

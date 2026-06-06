@@ -1,6 +1,8 @@
 export type Team = 'red' | 'blue';
 export type FortLayer = 'bottom' | 'middle' | 'top';
 export type SoldierType = 'bomber' | 'infantry' | 'sniper' | 'artillery';
+export type SoldierVisualState = 'idle' | 'deploy' | 'attack';
+export type ProjectileTrajectory = 'heavy-lob' | 'flat-burst' | 'direct-shot' | 'mortar-arc';
 export type BattlePhase = 'READY' | 'DEPLOY' | 'ATTACK' | 'SETTLE' | 'GAMEOVER';
 
 export interface Vec2 {
@@ -16,6 +18,8 @@ export interface FortBlockState extends Vec2 {
   layer: FortLayer;
   isDestroyed: boolean;
   isVoid: boolean;
+  crackLevel: number;
+  lastHitAt: number;
   canBearWeight: boolean;
   width: number;
   height: number;
@@ -43,6 +47,7 @@ export interface SoldierState extends Vec2 {
   maxHp: number;
   isAlive: boolean;
   isExposed: boolean;
+  visualState: SoldierVisualState;
 }
 
 export interface SoldierConfig {
@@ -51,6 +56,7 @@ export interface SoldierConfig {
   defBreak: number;
   shellSpeed: number;
   explosionRadius: number;
+  trajectory: ProjectileTrajectory;
   maxHp: number;
   suitLayer: FortLayer | 'all' | 'middleTop';
   attacksPerTurn: number;

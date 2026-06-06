@@ -32,6 +32,7 @@ export function assignSoldierToSlot(fort: FortState, type: SoldierType, slotId: 
     maxHp: config.maxHp,
     isAlive: true,
     isExposed: false,
+    visualState: 'deploy' as const,
     x: slot.x,
     y: slot.y
   };
