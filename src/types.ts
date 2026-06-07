@@ -87,8 +87,6 @@ export interface ChassisConfig {
 export interface FortState {
   team: Team;
   chassisType: ChassisType;
-  coreHp: number;
-  maxCoreHp: number;
   blocks: FortBlockState[];
   deploySlots: DeploySlot[];
   soldiers: SoldierState[];
@@ -101,7 +99,6 @@ export interface DamageReport {
   soldierHits: Array<{ soldierId: string; damage: number; killed: boolean }>;
   cratersCreated: CraterState[];
   effectiveImpact: Vec2;
-  coreDamage: number;
   collapsedBlocks: string[];
 }
 

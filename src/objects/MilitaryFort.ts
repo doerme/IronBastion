@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { ASSET_KEYS, CHASSIS_CONFIG, DEFAULT_CHASSIS_TYPE, DEPLOY_LAYOUT, FORT_LAYER_CONFIG, TURN_CONFIG } from '../config';
+import { CHASSIS_CONFIG, DEFAULT_CHASSIS_TYPE, DEPLOY_LAYOUT, FORT_LAYER_CONFIG } from '../config';
 import { canDeploySoldier } from '../systems/SoldierDeploy';
 import { createFortBlockState, FortBlock } from './FortBlock';
 import { Soldier } from './Soldier';
@@ -12,8 +12,6 @@ export class MilitaryFort {
   blocks: FortBlock[] = [];
   soldierViews = new Map<string, Soldier>();
   chassis: Phaser.GameObjects.Sprite;
-  core: Phaser.GameObjects.Sprite;
-  coreText: Phaser.GameObjects.Text;
   slotViews: Phaser.GameObjects.Arc[];
   interiorViews: Phaser.GameObjects.Rectangle[] = [];
 
@@ -27,8 +25,6 @@ export class MilitaryFort {
     this.state = {
       team,
       chassisType,
-      coreHp: TURN_CONFIG.initialCoreHp,
-      maxCoreHp: TURN_CONFIG.initialCoreHp,
       blocks: [],
       deploySlots: [],
       soldiers: [],
@@ -40,25 +36,11 @@ export class MilitaryFort {
     this.createBlocks(origin);
     this.createInteriorViews();
     this.createDeploySlots(origin);
-    const coreKey = team === 'red' ? ASSET_KEYS.redCore : ASSET_KEYS.blueCore;
-    this.core = scene.add.sprite(origin.x, origin.y - 74, coreKey);
-    this.core.setDepth(3.5);
-    this.coreText = scene.add.text(origin.x, origin.y - 35, '核心', {
-      fontFamily: 'Arial',
-      fontSize: '13px',
-      color: '#f7edcf',
-      stroke: '#111',
-      strokeThickness: 3
-    });
-    this.coreText.setOrigin(0.5);
-    this.coreText.setDepth(4);
     this.slotViews = this.createSlotViews();
   }
 
   syncVisuals(selectedType?: SoldierType, showInterior = false, showDeployHints = Boolean(selectedType)): void {
     for (const block of this.blocks) block.syncVisual(showInterior);
-    this.core.setAlpha(showInterior ? 0.34 : 0.55 + (this.state.coreHp / this.state.maxCoreHp) * 0.45);
-    this.coreText.setAlpha(showInterior ? 0.45 : 1);
     this.syncSoldiers(showInterior);
 
     for (const slotView of this.slotViews) {
@@ -73,10 +55,6 @@ export class MilitaryFort {
 
   findSlotAt(x: number, y: number): DeploySlot | undefined {
     return this.state.deploySlots.find((slot) => Phaser.Math.Distance.Between(x, y, slot.x, slot.y) <= 22);
-  }
-
-  getCorePosition(): Vec2 {
-    return { x: this.core.x, y: this.core.y };
   }
 
   getBlockView(blockId: string): FortBlock | undefined {

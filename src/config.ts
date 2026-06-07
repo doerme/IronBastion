@@ -13,8 +13,6 @@ export const ASSET_KEYS = {
   redBlock: 'red-fort-block.png',
   blueBlock: 'blue-fort-block.png',
   damagedBlock: 'damaged-fort-block.png',
-  redCore: 'red-core.png',
-  blueCore: 'blue-core.png',
   redWheeledChassis: 'red-wheeled-chassis.png',
   blueWheeledChassis: 'blue-wheeled-chassis.png',
   bomber: 'bomber-sprite.png',
@@ -77,9 +75,7 @@ export const TURN_CONFIG = {
   maxRounds: 12,
   deploySeconds: 15,
   settleSeconds: 3,
-  maxSoldiersPerFort: 6,
-  initialCoreHp: 1000,
-  allBlocksDestroyedCorePenalty: 80
+  maxSoldiersPerFort: 6
 } as const;
 
 export const PHYSICS_CONFIG = {
@@ -150,6 +146,38 @@ export const PROJECTILE_CONFIG: Record<
     travelTimeMax: 1.8,
     launchLift: -165
   }
+};
+
+export const AUDIO_CONFIG = {
+  masterVolume: 0.45,
+  bgmVolume: 0.14,
+  sfxVolume: 0.72,
+  bgmStepMs: 720,
+  bgmBassNotes: [55, 55, 49, 55, 41.2, 41.2, 49, 55],
+  bgmHornNotes: [220, 246.94, 196, 164.81],
+  bgmPadFrequency: 110,
+  shotBySoldier: {
+    bomber: { frequency: 82, duration: 0.24, volume: 0.52 },
+    infantry: { frequency: 170, duration: 0.12, volume: 0.28 },
+    sniper: { frequency: 260, duration: 0.14, volume: 0.32 },
+    artillery: { frequency: 58, duration: 0.3, volume: 0.62 }
+  },
+  explosionBySoldier: {
+    bomber: { frequency: 55, duration: 0.62, volume: 0.9 },
+    infantry: { frequency: 130, duration: 0.34, volume: 0.58 },
+    sniper: { frequency: 190, duration: 0.28, volume: 0.48 },
+    artillery: { frequency: 44, duration: 0.75, volume: 1 }
+  }
+} as const satisfies {
+  masterVolume: number;
+  bgmVolume: number;
+  sfxVolume: number;
+  bgmStepMs: number;
+  bgmBassNotes: readonly number[];
+  bgmHornNotes: readonly number[];
+  bgmPadFrequency: number;
+  shotBySoldier: Record<SoldierType, { frequency: number; duration: number; volume: number }>;
+  explosionBySoldier: Record<SoldierType, { frequency: number; duration: number; volume: number }>;
 };
 
 export const FORT_LAYER_CONFIG: Record<
@@ -232,7 +260,7 @@ export const SOLDIER_CONFIG: Record<SoldierType, import('./types').SoldierConfig
     maxHp: 85,
     suitLayer: 'top',
     attacksPerTurn: 1,
-    description: '精准破核，直击核心+25%'
+    description: '高速直射，精准压制暴露单位'
   },
   artillery: {
     label: '野战炮兵',
@@ -254,9 +282,7 @@ export const COLLAPSE_RULES = {
   medium: { min: 0.7, max: 0.85, probability: 0.65 },
   high: { min: 0.85, max: 1.01, probability: 1 },
   minBlocks: 2,
-  maxBlocks: 4,
-  minCoreDamage: 40,
-  maxCoreDamage: 120
+  maxBlocks: 4
 } as const;
 
 export const DEPLOY_LAYOUT: Record<FortLayer, number> = {

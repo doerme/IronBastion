@@ -13,14 +13,15 @@ import {
 import { MilitaryFort } from '../objects/MilitaryFort';
 import { ActiveShell, launchShell } from '../objects/ArtilleryShell';
 import {
-  applyEndOfTurnFortPenalty,
   applyExplosionDamage,
   findShellCollisionBlock,
+  getFortCenter,
   selectExposedSoldierTarget,
   selectTargetBlock,
   updateSoldierExposure
 } from '../systems/FortPhysics';
 import { assignSoldierToSlot, canDeploySoldier } from '../systems/SoldierDeploy';
+import { BattleAudio } from '../systems/BattleAudio';
 import { TurnBattleSystem } from '../systems/TurnBattleSystem';
 import type { BattleThemeConfig, SoldierState, SoldierType, Team, Vec2, WinnerReport } from '../types';
 
@@ -38,6 +39,7 @@ const PHASE_LABELS = {
   SETTLE: '战场结算',
   GAMEOVER: '战局结束'
 } as const;
+const UI_DEPTH = 20;
 
 export class BattleScene extends Phaser.Scene {
   private turnSystem = new TurnBattleSystem();
@@ -53,6 +55,7 @@ export class BattleScene extends Phaser.Scene {
   private fireButton!: Phaser.GameObjects.Rectangle;
   private fireButtonText!: Phaser.GameObjects.Text;
   private gameOverPanel?: Phaser.GameObjects.Container;
+  private battleAudio!: BattleAudio;
 
   constructor() {
     super('BattleScene');
@@ -66,6 +69,10 @@ export class BattleScene extends Phaser.Scene {
 
     this.redFort = new MilitaryFort(this, 'red', { x: 195, y: 372 }, { groundY: theme.groundY });
     this.blueFort = new MilitaryFort(this, 'blue', { x: 829, y: 372 }, { groundY: theme.groundY });
+    this.battleAudio = new BattleAudio(this);
+    this.battleAudio.startBgm();
+    this.input.once('pointerdown', () => this.battleAudio.unlock());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.battleAudio.destroy());
 
     this.createUi();
     this.bindInput();
@@ -100,6 +107,7 @@ export class BattleScene extends Phaser.Scene {
       stroke: '#111',
       strokeThickness: 4
     });
+    this.statusText.setDepth(UI_DEPTH);
 
     this.hpText = this.add.text(GAME_WIDTH - 24, 18, '', {
       fontFamily: 'Arial',
@@ -110,6 +118,7 @@ export class BattleScene extends Phaser.Scene {
       align: 'right'
     });
     this.hpText.setOrigin(1, 0);
+    this.hpText.setDepth(UI_DEPTH);
 
     this.messageText = this.add.text(GAME_WIDTH / 2, 63, '', {
       fontFamily: 'Arial',
@@ -119,6 +128,7 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 4
     });
     this.messageText.setOrigin(0.5);
+    this.messageText.setDepth(UI_DEPTH);
 
     this.createCards();
     this.createFireButton();
@@ -130,6 +140,7 @@ export class BattleScene extends Phaser.Scene {
       const type = SOLDIER_TYPES[i];
       const x = startX + i * 146;
       const card = this.add.rectangle(x, 526, 128, 68, 0x20251e, 0.88);
+      card.setDepth(UI_DEPTH);
       card.setStrokeStyle(2, 0x746b4d, 0.9);
       card.setInteractive({ useHandCursor: true });
       card.on('pointerdown', () => {
@@ -139,26 +150,27 @@ export class BattleScene extends Phaser.Scene {
       });
       this.cardRects.push(card);
 
-      this.add.image(x - 43, 514, this.getSoldierTexture(type)).setScale(0.58);
+      this.add.image(x - 43, 514, this.getSoldierTexture(type)).setScale(0.58).setDepth(UI_DEPTH + 0.1);
       this.add.text(x - 14, 498, SOLDIER_CONFIG[type].label, {
         fontFamily: 'Arial',
         fontSize: '14px',
         color: '#fff0ca',
         stroke: '#111',
         strokeThickness: 3
-      });
+      }).setDepth(UI_DEPTH + 0.1);
       this.add.text(x - 14, 520, `伤${SOLDIER_CONFIG[type].attack} 破${SOLDIER_CONFIG[type].defBreak}`, {
         fontFamily: 'Arial',
         fontSize: '12px',
         color: '#d8cfaa',
         stroke: '#111',
         strokeThickness: 3
-      });
+      }).setDepth(UI_DEPTH + 0.1);
     }
   }
 
   private createFireButton(): void {
     this.fireButton = this.add.rectangle(854, 526, 150, 68, 0x82412c, 0.92);
+    this.fireButton.setDepth(UI_DEPTH);
     this.fireButton.setStrokeStyle(2, 0xffc268, 0.9);
     this.fireButton.setInteractive({ useHandCursor: true });
     this.fireButton.on('pointerdown', () => {
@@ -172,6 +184,7 @@ export class BattleScene extends Phaser.Scene {
       strokeThickness: 4
     });
     this.fireButtonText.setOrigin(0.5);
+    this.fireButtonText.setDepth(UI_DEPTH + 0.1);
   }
 
   private bindInput(): void {
@@ -234,15 +247,16 @@ export class BattleScene extends Phaser.Scene {
       for (let i = 0; i < config.attacksPerTurn; i += 1) {
         const exposedSoldierTarget = selectExposedSoldierTarget(targetFort.state);
         const targetBlock = selectTargetBlock(targetFort.state);
+        const target =
+          exposedSoldierTarget && (!targetBlock || Math.random() < 0.75)
+            ? exposedSoldierTarget
+            : targetBlock
+              ? { x: targetBlock.x, y: targetBlock.y }
+              : getFortCenter(targetFort.state);
         tasks.push({
           soldier,
           targetFort,
-          target:
-            exposedSoldierTarget && (!targetBlock || Math.random() < 0.75)
-              ? exposedSoldierTarget
-              : targetBlock
-                ? { x: targetBlock.x, y: targetBlock.y }
-                : targetFort.getCorePosition()
+          target
         });
       }
     }
@@ -259,6 +273,7 @@ export class BattleScene extends Phaser.Scene {
 
     const speed = SOLDIER_CONFIG[task.soldier.type].shellSpeed;
     this.setSoldierVisualState(task.soldier.id, 'attack');
+    this.battleAudio.playShot(task.soldier.type);
     this.activeShell = launchShell(this, task.soldier, task.target, speed);
     this.activeShell.sprite.setData('targetFort', task.targetFort);
     this.time.delayedCall(520, () => this.setSoldierVisualState(task.soldier.id, 'idle'));
@@ -292,6 +307,7 @@ export class BattleScene extends Phaser.Scene {
 
     const radius = SOLDIER_CONFIG[shell.attacker.type].explosionRadius;
     const report = applyExplosionDamage(targetFort.state, shell.attacker.type, impact, radius);
+    this.battleAudio.playExplosion(shell.attacker.type);
     this.playExplosion(report.effectiveImpact, radius);
     targetFort.syncVisuals(undefined, false);
 
@@ -300,8 +316,6 @@ export class BattleScene extends Phaser.Scene {
     } else if (report.soldierHits.length > 0) {
       const totalDamage = report.soldierHits.reduce((sum, hit) => sum + hit.damage, 0);
       this.setMessage(`暴露士兵受创，合计扣血 ${totalDamage}。`);
-    } else if (report.coreDamage > 0) {
-      this.setMessage(`核心受损 ${report.coreDamage}，阵地震荡。`);
     } else if (report.collapsedBlocks.length > 0) {
       this.setMessage('底层失稳，敌方上层阵地坍塌！');
     }
@@ -317,10 +331,6 @@ export class BattleScene extends Phaser.Scene {
 
   private settleTurn(): void {
     this.turnSystem.startSettle();
-    const defender = this.turnSystem.activeTeam === 'red' ? this.blueFort : this.redFort;
-    const penalty = applyEndOfTurnFortPenalty(defender.state);
-    if (penalty > 0) this.setMessage(`${defender.state.team === 'red' ? '红方' : '蓝方'}全工事损毁，核心持续受损 ${penalty}。`);
-
     this.syncAllVisuals();
     const winner = this.turnSystem.getWinner(this.redFort.state, this.blueFort.state);
     if (winner.winner) {
@@ -348,6 +358,7 @@ export class BattleScene extends Phaser.Scene {
       report.winner === 'draw' ? '战局平手' : report.winner === 'red' ? '红方胜利' : '蓝方胜利';
 
     const panel = this.add.container(GAME_WIDTH / 2, GAME_HEIGHT / 2);
+    panel.setDepth(UI_DEPTH + 5);
     const bg = this.add.rectangle(0, 0, 420, 210, 0x141812, 0.94);
     bg.setStrokeStyle(2, 0xf0c36a, 0.9);
     const titleText = this.add.text(0, -70, title, {
@@ -361,7 +372,7 @@ export class BattleScene extends Phaser.Scene {
     const body = this.add.text(
       0,
       -18,
-      `${report.reason}\n红方士兵 ${this.getAliveSoldierCount(this.redFort)} / 蓝方士兵 ${this.getAliveSoldierCount(this.blueFort)}\n红方核心 ${this.redFort.state.coreHp} / 蓝方核心 ${this.blueFort.state.coreHp}`,
+      `${report.reason}\n红方作战单位 ${this.getAliveSoldierCount(this.redFort)}/${this.redFort.state.soldiers.length}\n蓝方作战单位 ${this.getAliveSoldierCount(this.blueFort)}/${this.blueFort.state.soldiers.length}`,
       {
         fontFamily: 'Arial',
         fontSize: '18px',
@@ -390,6 +401,7 @@ export class BattleScene extends Phaser.Scene {
   private playExplosion(impact: Vec2, radius: number): void {
     this.cameras.main.shake(PHYSICS_CONFIG.shakeMs, PHYSICS_CONFIG.shakeIntensity);
     const flash = this.add.image(impact.x, impact.y, ASSET_KEYS.explosion);
+    flash.setDepth(4.8);
     flash.setDisplaySize(radius * 1.15, radius * 1.15);
     flash.setBlendMode(Phaser.BlendModes.ADD);
     this.tweens.add({
@@ -401,6 +413,7 @@ export class BattleScene extends Phaser.Scene {
     });
 
     const smoke = this.add.image(impact.x + 8, impact.y - 4, ASSET_KEYS.smoke);
+    smoke.setDepth(4.7);
     smoke.setDisplaySize(radius, radius);
     this.tweens.add({
       targets: smoke,
@@ -417,7 +430,7 @@ export class BattleScene extends Phaser.Scene {
       `第 ${Math.min(this.turnSystem.round, TURN_CONFIG.maxRounds)} / ${TURN_CONFIG.maxRounds} 回合  ${PHASE_LABELS[this.turnSystem.phase]}  ${side}  ${Math.ceil(this.turnSystem.deployTimeLeft)}s`
     );
     this.hpText.setText(
-      `红方核心 ${this.redFort.state.coreHp}/${this.redFort.state.maxCoreHp}  士兵 ${this.getAliveSoldierCount(this.redFort)}\n蓝方核心 ${this.blueFort.state.coreHp}/${this.blueFort.state.maxCoreHp}  士兵 ${this.getAliveSoldierCount(this.blueFort)}`
+      `红方作战单位 ${this.getAliveSoldierCount(this.redFort)}/${this.redFort.state.soldiers.length}\n蓝方作战单位 ${this.getAliveSoldierCount(this.blueFort)}/${this.blueFort.state.soldiers.length}`
     );
 
     for (let i = 0; i < this.cardRects.length; i += 1) {

@@ -7,8 +7,6 @@ export function createMilitaryTextures(scene: Phaser.Scene): void {
   createBlock(scene, ASSET_KEYS.redBlock, '#7f2f2b', '#d4533f');
   createBlock(scene, ASSET_KEYS.blueBlock, '#244c7d', '#3d8be0');
   createBlock(scene, ASSET_KEYS.damagedBlock, '#3b352d', '#8d7b63');
-  createCore(scene, ASSET_KEYS.redCore, '#ff5a45');
-  createCore(scene, ASSET_KEYS.blueCore, '#55a9ff');
   createChassis(scene, ASSET_KEYS.redWheeledChassis, 'red');
   createChassis(scene, ASSET_KEYS.blueWheeledChassis, 'blue');
   createSoldier(scene, ASSET_KEYS.bomber, '#e04a32', 'B');
@@ -258,22 +256,6 @@ function createBlock(scene: Phaser.Scene, key: string, base: string, highlight: 
   g.lineStyle(2, 0x121212, 0.75);
   g.strokeRoundedRect(1, 1, 36, 30, 3);
   g.generateTexture(key, 38, 32);
-  g.destroy();
-}
-
-function createCore(scene: Phaser.Scene, key: string, glow: string): void {
-  if (scene.textures.exists(key)) return;
-  const g = scene.make.graphics({ x: 0, y: 0 });
-  const color = Phaser.Display.Color.HexStringToColor(glow).color;
-  g.fillStyle(0x222522);
-  g.fillRoundedRect(2, 2, 54, 50, 6);
-  g.fillStyle(color, 0.9);
-  g.fillCircle(29, 27, 16);
-  g.fillStyle(0xffffff, 0.35);
-  g.fillCircle(23, 20, 5);
-  g.lineStyle(3, color, 0.8);
-  g.strokeRoundedRect(4, 4, 50, 46, 6);
-  g.generateTexture(key, 58, 54);
   g.destroy();
 }
 

@@ -1,4 +1,4 @@
-import { COLLAPSE_RULES, CRATER_CONFIG, FORT_LAYER_CONFIG, SOLDIER_CONFIG, TURN_CONFIG } from '../config';
+import { COLLAPSE_RULES, CRATER_CONFIG, FORT_LAYER_CONFIG, SOLDIER_CONFIG } from '../config';
 import type { CraterState, DamageReport, FortBlockState, FortLayer, FortState, SoldierType, Vec2 } from '../types';
 
 export function getDistance(a: Vec2, b: Vec2): number {
@@ -96,7 +96,6 @@ export function applyExplosionDamage(
     soldierHits: [],
     cratersCreated: [],
     effectiveImpact,
-    coreDamage: 0,
     collapsedBlocks: []
   };
 
@@ -105,7 +104,7 @@ export function applyExplosionDamage(
       !block.isDestroyed &&
       !block.isVoid &&
       !isBlockCoveredByCrater(fort, block) &&
-      getDistance(block, effectiveImpact) <= radius
+      circleIntersectsBlock(effectiveImpact, radius, block)
   );
 
   for (const block of blocksInRange) {
@@ -130,7 +129,6 @@ export function applyExplosionDamage(
 
   const collapse = tryCollapse(fort, random);
   report.collapsedBlocks.push(...collapse.collapsedBlocks);
-  report.coreDamage += collapse.coreDamage;
   updateSoldierExposure(fort);
 
   for (const soldier of fort.soldiers) {
@@ -146,13 +144,6 @@ export function applyExplosionDamage(
     report.soldierHits.push({ soldierId: soldier.id, damage, killed: !soldier.isAlive });
   }
 
-  if (blocksInRange.length === 0 && report.soldierHits.length === 0 && report.cratersCreated.length === 0) {
-    const baseDamage = SOLDIER_CONFIG[attackerType].attack;
-    const modifier = attackerType === 'sniper' ? 1.25 : 1;
-    report.coreDamage += Math.round(baseDamage * modifier);
-  }
-
-  fort.coreHp = Math.max(0, fort.coreHp - report.coreDamage);
   return report;
 }
 
@@ -192,16 +183,6 @@ function getPassThroughImpact(fort: FortState, impact: Vec2): Vec2 {
 function getNearest<T extends Vec2>(items: T[], point: Vec2): T | null {
   if (items.length === 0) return null;
   return items.reduce((nearest, item) => (getDistance(item, point) < getDistance(nearest, point) ? item : nearest));
-}
-
-function hasFortBlockNear(fort: FortState, point: Vec2, radius: number): boolean {
-  return fort.blocks.some(
-    (block) =>
-      !block.isDestroyed &&
-      !block.isVoid &&
-      !isBlockCoveredByCrater(fort, block) &&
-      getDistance(block, point) <= radius
-  );
 }
 
 function createCrater(fort: FortState, createdBy: SoldierType, point: Vec2): CraterState {
@@ -253,17 +234,17 @@ function circleIntersectsBlock(circle: Vec2, radius: number, block: FortBlockSta
 export function tryCollapse(
   fort: FortState,
   random: () => number = Math.random
-): Pick<DamageReport, 'collapsedBlocks' | 'coreDamage'> {
-  if (fort.collapseTriggered) return { collapsedBlocks: [], coreDamage: 0 };
+): Pick<DamageReport, 'collapsedBlocks'> {
+  if (fort.collapseTriggered) return { collapsedBlocks: [] };
 
   const rate = getLayerDestroyedRate(fort, 'bottom');
   const probability = getCollapseProbability(rate);
-  if (probability <= 0 || random() > probability) return { collapsedBlocks: [], coreDamage: 0 };
+  if (probability <= 0 || random() > probability) return { collapsedBlocks: [] };
 
   const candidates = fort.blocks.filter(
     (block) => !block.isDestroyed && (block.layer === 'middle' || block.layer === 'top')
   );
-  if (candidates.length === 0) return { collapsedBlocks: [], coreDamage: 0 };
+  if (candidates.length === 0) return { collapsedBlocks: [] };
 
   fort.collapseTriggered = true;
 
@@ -278,17 +259,7 @@ export function tryCollapse(
     block.isDestroyed = true;
   }
 
-  return {
-    collapsedBlocks: collapsed.map((block) => block.id),
-    coreDamage: randomInt(COLLAPSE_RULES.minCoreDamage, COLLAPSE_RULES.maxCoreDamage, random)
-  };
-}
-
-export function applyEndOfTurnFortPenalty(fort: FortState): number {
-  if (!areAllBlocksDestroyed(fort)) return 0;
-  const damage = Math.min(TURN_CONFIG.allBlocksDestroyedCorePenalty, fort.coreHp);
-  fort.coreHp -= damage;
-  return damage;
+  return { collapsedBlocks: collapsed.map((block) => block.id) };
 }
 
 function randomInt(min: number, max: number, random: () => number): number {

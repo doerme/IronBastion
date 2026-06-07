@@ -13,6 +13,7 @@ export function launchShell(scene: Phaser.Scene, attacker: SoldierState, target:
   const projectile = PROJECTILE_CONFIG[attacker.type];
   const shell = scene.add.sprite(attacker.x, attacker.y - 12, projectile.texture);
   shell.setScale(projectile.scale);
+  shell.setDepth(4.6);
   scene.physics.add.existing(shell);
 
   const body = shell.body as Phaser.Physics.Arcade.Body;

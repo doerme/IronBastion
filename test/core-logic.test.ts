@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACTIVE_THEME_ID,
+  AUDIO_CONFIG,
   CHASSIS_CONFIG,
   DEFAULT_CHASSIS_TYPE,
   FORT_LAYER_CONFIG,
@@ -51,6 +52,22 @@ describe('Projectile identity rules', () => {
   });
 });
 
+describe('Battle audio configuration', () => {
+  it('defines background music plus shot and explosion profiles for every soldier type', () => {
+    expect(AUDIO_CONFIG.bgmBassNotes.length).toBeGreaterThanOrEqual(4);
+    expect(AUDIO_CONFIG.bgmHornNotes.length).toBeGreaterThanOrEqual(4);
+    expect(AUDIO_CONFIG.bgmPadFrequency).toBeGreaterThan(0);
+
+    for (const type of ['bomber', 'infantry', 'sniper', 'artillery'] as const) {
+      expect(AUDIO_CONFIG.shotBySoldier[type].frequency).toBeGreaterThan(0);
+      expect(AUDIO_CONFIG.shotBySoldier[type].frequency).toBeLessThanOrEqual(260);
+      expect(AUDIO_CONFIG.shotBySoldier[type].duration).toBeGreaterThan(0);
+      expect(AUDIO_CONFIG.explosionBySoldier[type].frequency).toBeGreaterThan(0);
+      expect(AUDIO_CONFIG.explosionBySoldier[type].duration).toBeGreaterThan(0);
+    }
+  });
+});
+
 describe('Theme and chassis configuration', () => {
   it('provides a layered grassland battlefield theme', () => {
     const theme = THEME_CONFIG[ACTIVE_THEME_ID];
@@ -94,6 +111,20 @@ describe('Fort damage math', () => {
 
     expect(report.blockHits.length).toBeGreaterThan(0);
     expect(fort.blocks[0].isDestroyed).toBe(false);
+    expect(fort.blocks[0].crackLevel).toBeGreaterThan(0);
+    expect(fort.blocks[0].lastHitAt).toBeGreaterThan(0);
+  });
+
+  it('damages and cracks a block when the explosion overlaps its edge', () => {
+    const fort = createFort('blue');
+    fort.blocks = [block('bottom', 'edge-hit-block')];
+    fort.blocks[0].x = 42;
+    fort.blocks[0].y = 0;
+
+    const report = applyExplosionDamage(fort, 'sniper', { x: 0, y: 0 }, 30, () => 1);
+
+    expect(report.blockHits).toHaveLength(1);
+    expect(report.blockHits[0].blockId).toBe('edge-hit-block');
     expect(fort.blocks[0].crackLevel).toBeGreaterThan(0);
     expect(fort.blocks[0].lastHitAt).toBeGreaterThan(0);
   });
@@ -209,31 +240,33 @@ describe('Collapse rules', () => {
 
     expect(report.collapsedBlocks.length).toBeGreaterThanOrEqual(2);
     expect(report.collapsedBlocks.length).toBeLessThanOrEqual(4);
-    expect(report.coreDamage).toBeGreaterThanOrEqual(40);
-    expect(report.coreDamage).toBeLessThanOrEqual(120);
     expect(fort.collapseTriggered).toBe(true);
   });
 });
 
 describe('Victory rules', () => {
-  it('ends the battle when a core reaches zero', () => {
+  it('does not end the battle just because fortress blocks are destroyed', () => {
     const system = new TurnBattleSystem();
     const red = createFort('red');
     const blue = createFort('blue');
-    blue.coreHp = 0;
+    for (const blockState of blue.blocks) {
+      blockState.isDestroyed = true;
+      blockState.hp = 0;
+    }
 
-    expect(system.getWinner(red, blue)).toEqual({ winner: 'red', reason: '蓝方堡垒失守' });
+    expect(system.getWinner(red, blue)).toEqual({ winner: null, reason: '' });
   });
 
-  it('uses remaining core hp after twelve rounds', () => {
+  it('uses surviving soldiers after twelve rounds', () => {
     const system = new TurnBattleSystem();
     const red = createFort('red');
     const blue = createFort('blue');
-    red.coreHp = 620;
-    blue.coreHp = 540;
+    red.soldiers.push(aliveSoldier('red', 'red-1'));
+    red.soldiers.push(aliveSoldier('red', 'red-2'));
+    blue.soldiers.push(aliveSoldier('blue', 'blue-1'));
     system.round = TURN_CONFIG.maxRounds + 1;
 
-    expect(system.getWinner(red, blue).winner).toBe('red');
+    expect(system.getWinner(red, blue)).toEqual({ winner: 'red', reason: '十二回合后红方存活单位更多' });
   });
 
   it('ends the battle when all deployed soldiers are dead', () => {
@@ -265,8 +298,6 @@ function createFort(team: Team): FortState {
   return {
     team,
     chassisType: DEFAULT_CHASSIS_TYPE,
-    coreHp: TURN_CONFIG.initialCoreHp,
-    maxCoreHp: TURN_CONFIG.initialCoreHp,
     collapseTriggered: false,
     deploySlots: [],
     soldiers: [],
@@ -274,6 +305,23 @@ function createFort(team: Team): FortState {
     blocks: layers.flatMap((layer) =>
       Array.from({ length: FORT_LAYER_CONFIG[layer].count }, (_, index) => block(layer, `${team}-${layer}-${index}`))
     )
+  };
+}
+
+function aliveSoldier(team: Team, id: string) {
+  return {
+    id,
+    team,
+    type: 'infantry' as const,
+    layer: 'middle' as const,
+    slotId: `${id}-slot`,
+    x: 0,
+    y: 0,
+    hp: 80,
+    maxHp: 80,
+    isAlive: true,
+    isExposed: false,
+    visualState: 'idle' as const
   };
 }
 
